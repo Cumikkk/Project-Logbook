@@ -1,0 +1,255 @@
+== KONTEKS PROYEK ==
+
+Saya sedang membuat aplikasi berbasis website untuk logbook tempat magang.
+Di tempat magang terdapat beberapa divisi, dan setiap divisi memiliki satu manajer dan beberapa intern.
+
+Teknologi yang digunakan:
+- HTML, CSS, JavaScript
+- PHP (native)
+- MySQL dengan phpMyAdmin
+- Bootstrap (offline, tanpa CDN) — path: assets/vendor/bootstrap/
+
+Role pengguna:
+- Admin
+- Manajer
+- Intern
+
+Fitur Admin:
+- Tambah, edit, hapus divisi
+- Tambah, edit, hapus akun Admin, Manajer, dan Intern
+- Assign manajer ke divisi
+- Assign intern ke divisi
+- Set periode magang intern (tanggal mulai dan tanggal selesai)
+- Bisa lebih dari satu akun Admin
+- Bisa melihat dan mengelola cadangan intern yang dihapus
+- Bisa memulihkan intern dari cadangan
+- Bisa mengaktifkan kembali intern yang tidak aktif (dengan memperbarui tanggal selesai magang)
+
+Fitur Manajer:
+- Tambah, edit, hapus akun Intern di divisinya sendiri
+- Set periode magang untuk intern yang dia tambahkan
+- Lihat daftar intern di divisinya sendiri
+- Lihat logbook tiap intern di divisinya sendiri
+- Bisa melihat cadangan intern di divisinya sendiri
+- Bisa memulihkan intern dari cadangan
+- Bisa mengaktifkan kembali intern yang tidak aktif (dengan memperbarui tanggal selesai magang)
+
+Fitur Intern:
+- Tambah entri logbook
+- Edit dan hapus entri logbook miliknya sendiri (bebas tanpa batasan waktu)
+- Lihat logbook miliknya sendiri
+- Export logbook miliknya ke format Word dan PDF
+
+Fitur umum (semua role):
+- Satu halaman login untuk semua role, sistem otomatis mengarahkan ke dashboard sesuai role
+- Fitur lupa password via OTP email (OTP 6 digit, kedaluwarsa 10 menit, dikirim via PHPMailer)
+- Setiap pengguna bisa edit profil sendiri (foto profil, nama, username, password)
+- Sesi otomatis logout setelah 30 menit tidak aktif
+
+Struktur logbook:
+- No.
+- Tanggal
+- Nama Kegiatan
+- Deskripsi Kegiatan
+- Lampiran (1 file per entri, format: jpg, png, pdf, doc, docx)
+
+Ketentuan logbook:
+- Tidak ada sistem approval dari manajer
+- Tidak ada batas waktu pengisian
+
+Data intern:
+- Setiap intern hanya terdaftar di satu divisi
+- Setiap intern memiliki periode magang (tanggal mulai dan tanggal selesai)
+- Setiap intern memiliki data email
+- Jika tanggal selesai magang sudah lewat, intern otomatis tidak aktif dan tidak bisa login
+
+Fitur cadangan (trash):
+- Hanya berlaku untuk Intern
+- Saat Intern dihapus, data intern beserta logbooknya masuk ke cadangan terlebih dahulu
+- Cadangan dapat dilihat dan dikelola oleh Admin dan Manajer
+- Manajer hanya bisa melihat cadangan intern dari divisinya sendiri
+- Data di cadangan dapat dipulihkan kembali
+- Saat dipulihkan, intern dikembalikan ke divisi dan manajer yang sama seperti sebelum dihapus
+- Jika sudah melewati 30 hari, data terhapus permanen secara otomatis
+
+Notifikasi email (via PHPMailer + Gmail SMTP):
+- Admin dan Manajer mendapat email notifikasi ketika cadangan intern mendekati batas 30 hari
+- Intern mendapat email notifikasi 7 hari sebelum tanggal selesai magang
+
+Output:
+- Logbook dapat diekspor ke format Word dan PDF
+- Hanya Intern yang bisa export logbook miliknya sendiri
+
+Desain:
+- Style, warna, komponen, dan layout mengikuti desain web absensi yang akan dilampirkan
+- Selalu tanyakan mana referensinya
+
+Deployment:
+- Dikembangkan di localhost
+- Akan di-deploy ke Hostinger
+
+== ATURAN PENULISAN KODE ==
+
+- Jika mengirim teks/kode untuk diperbaiki: kirim versi lengkap, tidak boleh terpotong
+- Jangan ubah struktur, nama, urutan, indentasi kecuali diminta
+- Jangan refactor tersembunyi atau tambah optimasi di luar instruksi
+- Komentar: HTML gunakan <!-- nama -->, PHP gunakan // tanpa dekorasi
+- Setelah block kode wajib beri ringkasan dan next step
+- Bootstrap path: assets/vendor/bootstrap/
+- Nama file: sebutkan sebelum setiap block kode
+
+== STRUKTUR FOLDER ==
+
+Project-Logbook/
+├── role/
+│   ├── admin/
+│   │   ├── dashboard.php
+│   │   ├── divisi.php
+│   │   ├── pengguna.php
+│   │   ├── intern.php
+│   │   ├── cadangan.php
+│   │   └── profil.php
+│   ├── manajer/
+│   │   ├── dashboard.php
+│   │   ├── intern.php
+│   │   ├── logbook.php
+│   │   ├── cadangan.php
+│   │   └── profil.php
+│   └── intern/
+│       ├── dashboard.php
+│       ├── logbook.php
+│       ├── export.php
+│       └── profil.php
+├── includes/
+│   ├── header.php
+│   ├── footer.php
+│   ├── sidebar.php
+│   └── fungsi.php
+├── config/
+│   ├── koneksi.php
+│   ├── mailer.php
+│   └── auth.php
+├── assets/
+│   ├── img/
+│   │   └── favicon.png
+│   └── vendor/
+│       └── bootstrap/
+│           ├── css/
+│           └── js/
+├── uploads/
+│   ├── lampiran/
+│   └── foto-profil/
+├── vendor/
+│   └── phpmailer/
+│       └── src/
+│           ├── Exception.php
+│           ├── PHPMailer.php
+│           └── SMTP.php
+├── auth/
+│   └── login.php
+├── index.php
+└── logout.php
+
+== DATABASE ==
+
+Database: db_logbook
+
+Tabel users:
+- id (INT, PK, AUTO_INCREMENT)
+- nama (VARCHAR)
+- username (VARCHAR, UNIQUE)
+- email (VARCHAR, UNIQUE)
+- password (VARCHAR) — sementara plaintext
+- foto_profil (VARCHAR)
+- role (ENUM: admin, manajer, intern)
+- status (ENUM: aktif, tidak_aktif)
+- otp_code (VARCHAR)
+- otp_expires_at (DATETIME)
+- created_at (DATETIME)
+
+Tabel divisi:
+- id (INT, PK, AUTO_INCREMENT)
+- nama_divisi (VARCHAR)
+- created_at (DATETIME)
+
+Tabel intern_detail:
+- id (INT, PK, AUTO_INCREMENT)
+- user_id (INT, FK → users.id)
+- divisi_id (INT, FK → divisi.id)
+- manajer_id (INT, FK → users.id)
+- tanggal_mulai (DATE)
+- tanggal_selesai (DATE)
+- created_at (DATETIME)
+
+Tabel logbook:
+- id (INT, PK, AUTO_INCREMENT)
+- intern_id (INT, FK → users.id)
+- tanggal (DATE)
+- nama_kegiatan (VARCHAR)
+- deskripsi (TEXT)
+- lampiran (VARCHAR)
+- is_deleted (TINYINT(1), DEFAULT 0)
+- created_at (DATETIME)
+- updated_at (DATETIME)
+
+Tabel cadangan:
+- id (INT, PK, AUTO_INCREMENT)
+- user_id (INT)
+- nama (VARCHAR)
+- username (VARCHAR)
+- email (VARCHAR)
+- foto_profil (VARCHAR)
+- divisi_id (INT)
+- manajer_id (INT)
+- tanggal_mulai (DATE)
+- tanggal_selesai (DATE)
+- deleted_at (DATETIME)
+- expires_at (DATETIME)
+
+== SESSION YANG DIGUNAKAN ==
+
+$_SESSION['user_id']
+$_SESSION['nama']
+$_SESSION['username']
+$_SESSION['email']
+$_SESSION['role']
+$_SESSION['foto_profil']
+$_SESSION['last_activity']
+
+== FILE YANG SUDAH SELESAI ==
+✅ config/koneksi.php
+✅ config/auth.php
+✅ config/mailer.php
+✅ includes/fungsi.php
+✅ includes/header.php
+✅ includes/footer.php
+✅ includes/sidebar.php
+
+== FILE SELANJUTNYA ==
+⬜ auth/login.php  ← lanjut dari sini
+⬜ logout.php
+⬜ index.php
+⬜ role/admin/dashboard.php
+⬜ role/admin/divisi.php
+⬜ role/admin/pengguna.php
+⬜ role/admin/intern.php
+⬜ role/admin/cadangan.php
+⬜ role/admin/profil.php
+⬜ role/manajer/dashboard.php
+⬜ role/manajer/intern.php
+⬜ role/manajer/logbook.php
+⬜ role/manajer/cadangan.php
+⬜ role/manajer/profil.php
+⬜ role/intern/dashboard.php
+⬜ role/intern/logbook.php
+⬜ role/intern/export.php
+⬜ role/intern/profil.php
+
+== CATATAN PENTING ==
+
+- require_once di dalam folder role/admin/, role/manajer/, role/intern/ menggunakan ../../
+- Contoh: require_once '../../config/koneksi.php';
+- Bootstrap Icons dipakai via CDN: https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css
+- Avatar menggunakan DiceBear: https://api.dicebear.com/7.x/avataaars/svg?seed=USERNAME
+- Warna utama: #1E88B7 (biru) dan #5BAE3C (hijau)
+- Gradient header & sidebar: linear-gradient(90deg, #1E88B7, #5BAE3C)

@@ -1,0 +1,49 @@
+Project-Logbook/
+├── role/
+│   ├── admin/
+│   │   ├── dashboard.php
+│   │   ├── divisi.php
+│   │   ├── pengguna.php
+│   │   ├── intern.php
+│   │   ├── cadangan.php
+│   │   └── profil.php
+│   ├── manajer/
+│   │   ├── dashboard.php
+│   │   ├── intern.php
+│   │   ├── logbook.php
+│   │   ├── cadangan.php
+│   │   └── profil.php
+│   └── intern/
+│       ├── dashboard.php
+│       ├── logbook.php
+│       ├── export.php
+│       └── profil.php
+├── includes/
+│   ├── header.php
+│   ├── footer.php
+│   ├── sidebar.php
+│   └── fungsi.php
+├── config/
+│   ├── koneksi.php
+│   ├── mailer.php
+│   └── auth.php
+├── assets/
+│   ├── img/
+│   │   └── favicon.png
+│   └── vendor/
+│       └── bootstrap/
+│           ├── css/
+│           └── js/
+├── uploads/
+│   ├── lampiran/
+│   └── foto-profil/
+├── vendor/
+│   └── phpmailer/
+│       └── src/
+│           ├── Exception.php
+│           ├── PHPMailer.php
+│           └── SMTP.php
+├── auth/
+│   └── login.php
+├── index.php
+└── logout.php
