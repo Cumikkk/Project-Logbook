@@ -8,11 +8,11 @@ $today = date("Y-m-d");
 $bulan = date("m");
 $tahun = date("Y");
 
-// Total intern aktif
+// Total intern
 $q_intern = mysqli_query($conn, "
     SELECT COUNT(*) as total FROM users u
     JOIN intern_detail id ON u.id = id.user_id
-    WHERE u.role = 'intern' AND u.status = 'aktif'
+    WHERE u.role = 'intern'
 ");
 $total_intern = mysqli_fetch_assoc($q_intern)['total'] ?? 0;
 
@@ -24,30 +24,8 @@ $total_divisi = mysqli_fetch_assoc($q_divisi)['total'] ?? 0;
 $q_manajer = mysqli_query($conn, "SELECT COUNT(*) as total FROM users WHERE role = 'manajer' AND status = 'aktif'");
 $total_manajer = mysqli_fetch_assoc($q_manajer)['total'] ?? 0;
 
-// Total entri logbook bulan ini
-$q_logbook = mysqli_query($conn, "
-    SELECT COUNT(*) as total FROM logbook
-    WHERE MONTH(tanggal) = '$bulan'
-    AND YEAR(tanggal) = '$tahun'
-    AND is_deleted = 0
-");
-$total_logbook = mysqli_fetch_assoc($q_logbook)['total'] ?? 0;
-
-// Intern akan selesai magang dalam 7 hari ke depan
-$batas = date("Y-m-d", strtotime("+7 days"));
-$q_akan_selesai = mysqli_query($conn, "
-    SELECT u.nama, u.foto_profil, u.username, d.nama_divisi, id.tanggal_selesai
-    FROM users u
-    JOIN intern_detail id ON u.id = id.user_id
-    JOIN divisi d ON id.divisi_id = d.id
-    WHERE u.role = 'intern'
-    AND u.status = 'aktif'
-    AND id.tanggal_selesai BETWEEN '$today' AND '$batas'
-    ORDER BY id.tanggal_selesai ASC
-    LIMIT 5
-");
-
 // Cadangan mendekati batas hapus (7 hari ke depan)
+$batas = date("Y-m-d", strtotime("+7 days"));
 $q_cadangan = mysqli_query($conn, "
     SELECT c.*, d.nama_divisi
     FROM cadangan c
@@ -57,16 +35,16 @@ $q_cadangan = mysqli_query($conn, "
     LIMIT 5
 ");
 
-// Logbook terbaru
-$q_logbook_terbaru = mysqli_query($conn, "
-    SELECT l.*, u.nama, u.foto_profil, u.username, d.nama_divisi
-    FROM logbook l
-    JOIN users u ON l.intern_id = u.id
-    JOIN intern_detail id ON u.id = id.user_id
-    JOIN divisi d ON id.divisi_id = d.id
-    WHERE l.is_deleted = 0
-    ORDER BY l.created_at DESC
-    LIMIT 5
+// Ringkasan per divisi
+$q_ringkasan = mysqli_query($conn, "
+    SELECT d.nama_divisi, u_m.nama AS nama_manajer,
+        COUNT(id.user_id) AS jumlah_intern
+    FROM divisi d
+    LEFT JOIN users u_m ON d.manajer_id = u_m.id
+    LEFT JOIN intern_detail id ON d.id = id.divisi_id
+    LEFT JOIN users u_i ON id.user_id = u_i.id AND u_i.role = 'intern' AND u_i.status = 'aktif'
+    GROUP BY d.id, d.nama_divisi, u_m.nama
+    ORDER BY d.nama_divisi ASC
 ");
 
 // Greeting berdasarkan waktu
@@ -106,102 +84,40 @@ include BASE_PATH . "includes/sidebar.php";
 <!-- STAT CARDS -->
 <div class="row">
 
-    <!-- TOTAL INTERN AKTIF -->
-    <div class="col-lg-3 col-md-6 mb-4">
+    <!-- TOTAL INTERN -->
+    <div class="col-lg-4 col-md-6 mb-4">
         <div class="stat-card stat-intern rounded-4 p-3 text-center shadow-sm h-100">
             <div class="stat-icon mb-1"><i class="bi bi-people-fill"></i></div>
             <div class="stat-num"><?= $total_intern ?></div>
-            <div class="stat-label">Total Intern Aktif</div>
-            <div class="stat-sub">Intern terdaftar</div>
+            <div class="stat-label">Total Intern</div>
         </div>
     </div>
 
     <!-- TOTAL DIVISI -->
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-4 col-md-6 mb-4">
         <div class="stat-card stat-divisi rounded-4 p-3 text-center shadow-sm h-100">
             <div class="stat-icon mb-1"><i class="bi bi-diagram-3-fill"></i></div>
             <div class="stat-num"><?= $total_divisi ?></div>
             <div class="stat-label">Total Divisi</div>
-            <div class="stat-sub">Divisi terdaftar</div>
         </div>
     </div>
 
     <!-- TOTAL MANAJER -->
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-4 col-md-6 mb-4">
         <div class="stat-card stat-manajer rounded-4 p-3 text-center shadow-sm h-100">
             <div class="stat-icon mb-1"><i class="bi bi-person-badge-fill"></i></div>
             <div class="stat-num"><?= $total_manajer ?></div>
             <div class="stat-label">Total Manajer</div>
-            <div class="stat-sub">Manajer aktif</div>
-        </div>
-    </div>
-
-    <!-- ENTRI LOGBOOK BULAN INI -->
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="stat-card stat-logbook rounded-4 p-3 text-center shadow-sm h-100">
-            <div class="stat-icon mb-1"><i class="bi bi-journal-text"></i></div>
-            <div class="stat-num"><?= $total_logbook ?></div>
-            <div class="stat-label">Entri Logbook</div>
-            <div class="stat-sub"><?= date("F Y") ?></div>
         </div>
     </div>
 
 </div>
 
-<!-- 3 KOLOM BAWAH -->
+<!-- 2 KOLOM BAWAH -->
 <div class="row">
 
-    <!-- INTERN AKAN SELESAI MAGANG -->
-    <div class="col-lg-4 mb-4">
-        <div class="card border-0 shadow h-100 overflow-hidden">
-            <div class="card-banner px-4 py-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <h5 class="text-white fw-bold mb-0">Segera Selesai Magang</h5>
-                        <small style="color: rgba(255,255,255,0.75);">Dalam 7 hari ke depan</small>
-                    </div>
-                    <i class="bi bi-calendar-event text-white opacity-75 fs-3"></i>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <?php if (mysqli_num_rows($q_akan_selesai) > 0): ?>
-                    <ul class="list-group list-group-flush">
-                        <?php while ($intern = mysqli_fetch_assoc($q_akan_selesai)): ?>
-                            <li class="list-group-item px-4 py-3">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <img src="<?= $intern['foto_profil']
-                                                        ? BASE_URL . 'uploads/foto-profil/' . htmlspecialchars($intern['foto_profil'])
-                                                        : 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode($intern['username']) ?>"
-                                            class="rounded-circle" width="36" height="36"
-                                            style="object-fit:cover;">
-                                        <div>
-                                            <div class="fw-semibold text-dark" style="font-size:13px;"><?= htmlspecialchars($intern['nama']) ?></div>
-                                            <small class="text-muted"><?= htmlspecialchars($intern['nama_divisi']) ?></small>
-                                        </div>
-                                    </div>
-                                    <span class="badge bg-warning text-dark"><?= date("d M", strtotime($intern['tanggal_selesai'])) ?></span>
-                                </div>
-                            </li>
-                        <?php endwhile; ?>
-                    </ul>
-                    <div class="px-4 py-3 border-top">
-                        <a href="<?= BASE_URL ?>role/admin/intern.php" class="btn btn-sm btn-outline-primary w-100">
-                            Lihat Semua Intern
-                        </a>
-                    </div>
-                <?php else: ?>
-                    <div class="text-center text-muted py-5">
-                        <i class="bi bi-inbox fs-1 d-block mb-3 opacity-50"></i>
-                        <p class="fw-semibold">Tidak ada intern yang akan selesai</p>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- CADANGAN MENDEKATI BATAS -->
-    <div class="col-lg-4 mb-4">
+    <!-- CADANGAN KADALUARSA -->
+    <div class="col-lg-6 mb-4">
         <div class="card border-0 shadow h-100 overflow-hidden">
             <div class="card-banner px-4 py-3">
                 <div class="d-flex align-items-center justify-content-between">
@@ -244,49 +160,46 @@ include BASE_PATH . "includes/sidebar.php";
         </div>
     </div>
 
-    <!-- LOGBOOK TERBARU -->
-    <div class="col-lg-4 mb-4">
+    <!-- RINGKASAN PER DIVISI -->
+    <div class="col-lg-6 mb-4">
         <div class="card border-0 shadow h-100 overflow-hidden">
             <div class="card-banner px-4 py-3">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <h5 class="text-white fw-bold mb-0">Logbook Terbaru</h5>
-                        <small style="color: rgba(255,255,255,0.75);">Entri paling baru</small>
+                        <h5 class="text-white fw-bold mb-0">Ringkasan per Divisi</h5>
+                        <small style="color: rgba(255,255,255,0.75);">Manajer & jumlah intern aktif</small>
                     </div>
-                    <i class="bi bi-journal-check text-white opacity-75 fs-3"></i>
+                    <i class="bi bi-diagram-3 text-white opacity-75 fs-3"></i>
                 </div>
             </div>
             <div class="card-body p-0">
-                <?php if (mysqli_num_rows($q_logbook_terbaru) > 0): ?>
+                <?php if (mysqli_num_rows($q_ringkasan) > 0): ?>
                     <ul class="list-group list-group-flush">
-                        <?php while ($log = mysqli_fetch_assoc($q_logbook_terbaru)): ?>
+                        <?php while ($div = mysqli_fetch_assoc($q_ringkasan)): ?>
                             <li class="list-group-item px-4 py-3">
                                 <div class="d-flex align-items-center justify-content-between">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <img src="<?= $log['foto_profil']
-                                                        ? BASE_URL . 'uploads/foto-profil/' . htmlspecialchars($log['foto_profil'])
-                                                        : 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode($log['username']) ?>"
-                                            class="rounded-circle" width="36" height="36"
-                                            style="object-fit:cover;">
-                                        <div>
-                                            <div class="fw-semibold text-dark" style="font-size:13px;"><?= htmlspecialchars($log['nama_kegiatan']) ?></div>
-                                            <small class="text-muted"><?= htmlspecialchars($log['nama']) ?> &middot; <?= htmlspecialchars($log['nama_divisi']) ?></small>
-                                        </div>
+                                    <div>
+                                        <div class="fw-semibold text-dark" style="font-size:13px;"><?= htmlspecialchars($div['nama_divisi']) ?></div>
+                                        <small class="text-muted">
+                                            <i class="bi bi-person-badge me-1"></i><?= htmlspecialchars($div['nama_manajer'] ?? 'Belum ada manajer') ?>
+                                        </small>
                                     </div>
-                                    <span class="badge bg-secondary"><?= date("d M", strtotime($log['tanggal'])) ?></span>
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-people me-1"></i><?= $div['jumlah_intern'] ?> Intern
+                                    </span>
                                 </div>
                             </li>
                         <?php endwhile; ?>
                     </ul>
                     <div class="px-4 py-3 border-top">
-                        <a href="<?= BASE_URL ?>role/admin/intern.php" class="btn btn-sm btn-outline-primary w-100">
-                            Lihat Semua Intern
+                        <a href="<?= BASE_URL ?>role/admin/divisi.php" class="btn btn-sm btn-outline-primary w-100">
+                            Lihat Divisi
                         </a>
                     </div>
                 <?php else: ?>
                     <div class="text-center text-muted py-5">
                         <i class="bi bi-inbox fs-1 d-block mb-3 opacity-50"></i>
-                        <p class="fw-semibold">Belum ada entri logbook</p>
+                        <p class="fw-semibold">Belum ada data divisi</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -327,11 +240,6 @@ include BASE_PATH . "includes/sidebar.php";
         color: #6d4c00;
     }
 
-    .stat-logbook {
-        background: linear-gradient(135deg, #f5b7b1, #f1948a);
-        color: #6b1a1a;
-    }
-
     .stat-icon {
         font-size: 26px;
     }
@@ -348,12 +256,6 @@ include BASE_PATH . "includes/sidebar.php";
         text-transform: uppercase;
         letter-spacing: 0.5px;
         opacity: 0.85;
-    }
-
-    .stat-sub {
-        font-size: 11px;
-        opacity: 0.7;
-        margin-top: 2px;
     }
 
     @media (max-width: 576px) {

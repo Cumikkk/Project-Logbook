@@ -3,7 +3,7 @@ require_once __DIR__ . "/../../config/koneksi.php";
 require_once __DIR__ . "/../../config/auth.php";
 require_once __DIR__ . "/../../includes/fungsi.php";
 
-proteksi("admin");
+proteksi("intern");
 
 $success_profil   = "";
 $error_profil     = "";
@@ -203,7 +203,7 @@ include BASE_PATH . "includes/sidebar.php";
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Role</label>
                             <input type="text" class="form-control rounded-3 bg-light"
-                                value="Admin" disabled>
+                                value="Intern" disabled>
                         </div>
                     </div>
                     <div class="mt-4">

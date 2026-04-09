@@ -170,6 +170,7 @@ Tabel users:
 Tabel divisi:
 - id (INT, PK, AUTO_INCREMENT)
 - nama_divisi (VARCHAR)
+- manajer_id (INT, DEFAULT NULL)
 - created_at (DATETIME)
 
 Tabel intern_detail:
@@ -224,26 +225,26 @@ $_SESSION['last_activity']
 ✅ includes/header.php
 ✅ includes/footer.php
 ✅ includes/sidebar.php
+✅ auth/login.php
+✅ logout.php
+✅ index.php
+✅ role/admin/dashboard.php
+✅ role/admin/divisi.php
+✅ role/admin/pengguna.php
+✅ role/admin/intern.php
+✅ role/admin/cadangan.php
+✅ role/admin/profil.php
+✅ role/manajer/dashboard.php
+✅ role/manajer/intern.php
+✅ role/manajer/logbook.php
+✅ role/manajer/cadangan.php
+✅ role/manajer/profil.php
+✅ role/intern/dashboard.php
+✅ role/intern/logbook.php
+✅ role/intern/export.php
+✅ role/intern/profil.php
 
 == FILE SELANJUTNYA ==
-⬜ auth/login.php  ← lanjut dari sini
-⬜ logout.php
-⬜ index.php
-⬜ role/admin/dashboard.php
-⬜ role/admin/divisi.php
-⬜ role/admin/pengguna.php
-⬜ role/admin/intern.php
-⬜ role/admin/cadangan.php
-⬜ role/admin/profil.php
-⬜ role/manajer/dashboard.php
-⬜ role/manajer/intern.php
-⬜ role/manajer/logbook.php
-⬜ role/manajer/cadangan.php
-⬜ role/manajer/profil.php
-⬜ role/intern/dashboard.php
-⬜ role/intern/logbook.php
-⬜ role/intern/export.php
-⬜ role/intern/profil.php
 
 == CATATAN PENTING ==
 
@@ -251,5 +252,4 @@ $_SESSION['last_activity']
 - Contoh: require_once '../../config/koneksi.php';
 - Bootstrap Icons dipakai via CDN: https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css
 - Avatar menggunakan DiceBear: https://api.dicebear.com/7.x/avataaars/svg?seed=USERNAME
-- Warna utama: #1E88B7 (biru) dan #5BAE3C (hijau)
-- Gradient header & sidebar: linear-gradient(90deg, #1E88B7, #5BAE3C)
+- Warna konten banner: linear-gradient(135deg, #2f8f9d 0%, #1a6b76 100%)

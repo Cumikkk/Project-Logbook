@@ -10,8 +10,14 @@
     </button>
 
     <div class="sidebar-brand text-center">
-        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=<?= $_SESSION['username'] ?>"
-            width="70" class="rounded-circle mb-2 border border-white border-3" alt="Avatar">
+        <?php if (!empty($_SESSION['foto_profil'])): ?>
+            <img src="<?= BASE_URL ?>uploads/foto-profil/<?= htmlspecialchars($_SESSION['foto_profil']) ?>"
+                width="70" height="70" class="rounded-circle mb-2 border border-white border-3"
+                style="object-fit:cover;" alt="Foto Profil">
+        <?php else: ?>
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=<?= $_SESSION['username'] ?>"
+                width="70" class="rounded-circle mb-2 border border-white border-3" alt="Avatar">
+        <?php endif; ?>
         <h5 class="fw-bold text-white mb-0"><?= $_SESSION['nama'] ?></h5>
         <small class="text-white-50">@<?= $_SESSION['username'] ?></small>
     </div>

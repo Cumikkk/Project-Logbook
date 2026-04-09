@@ -4,8 +4,10 @@ require_once __DIR__ . "/../../config/auth.php";
 
 proteksi("admin");
 
-$success = "";
-$error   = "";
+$flash_success = "";
+$flash_error   = "";
+$modal_error_tambah = "";
+$modal_error_edit   = "";
 
 // TAMBAH DIVISI
 if (isset($_POST['aksi']) && $_POST['aksi'] === "tambah") {
@@ -13,10 +15,12 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === "tambah") {
 
     $cek = mysqli_query($conn, "SELECT * FROM divisi WHERE nama_divisi='$nama_divisi'");
     if (mysqli_num_rows($cek) > 0) {
-        $error = "Nama divisi sudah ada!";
+        $modal_error_tambah = "Nama divisi sudah ada!";
     } else {
         mysqli_query($conn, "INSERT INTO divisi (nama_divisi, created_at) VALUES ('$nama_divisi', NOW())");
-        $success = "Divisi berhasil ditambahkan!";
+        $_SESSION['flash_success'] = "Divisi berhasil ditambahkan!";
+        header("Location: " . BASE_URL . "role/admin/divisi.php");
+        exit;
     }
 }
 
@@ -27,41 +31,98 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === "edit") {
 
     $cek = mysqli_query($conn, "SELECT * FROM divisi WHERE nama_divisi='$nama_divisi' AND id != $id");
     if (mysqli_num_rows($cek) > 0) {
-        $error = "Nama divisi sudah digunakan!";
+        $modal_error_edit   = "Nama divisi sudah digunakan!";
+        $edit_id_aktif      = $id;
+        $edit_nama_aktif    = htmlspecialchars($_POST['nama_divisi'], ENT_QUOTES);
     } else {
         mysqli_query($conn, "UPDATE divisi SET nama_divisi='$nama_divisi' WHERE id=$id");
-        $success = "Divisi berhasil diperbarui!";
-    }
-}
-
-// HAPUS DIVISI
-if (isset($_GET['hapus'])) {
-    $id = (int) $_GET['hapus'];
-
-    $cek_intern = mysqli_query($conn, "SELECT * FROM intern_detail WHERE divisi_id=$id");
-    if (mysqli_num_rows($cek_intern) > 0) {
-        $error = "Divisi tidak bisa dihapus karena masih memiliki intern terdaftar!";
-    } else {
-        mysqli_query($conn, "DELETE FROM divisi WHERE id=$id");
-        header("Location: " . BASE_URL . "role/admin/divisi.php?hapus=success");
+        $_SESSION['flash_success'] = "Divisi berhasil diperbarui!";
+        header("Location: " . BASE_URL . "role/admin/divisi.php");
         exit;
     }
 }
 
-if (empty($error) && isset($_GET['hapus']) && $_GET['hapus'] === "success") {
-    $success = "Divisi berhasil dihapus!";
+// HAPUS DIVISI
+if (isset($_GET['hapus']) && is_numeric($_GET['hapus'])) {
+    $id = (int) $_GET['hapus'];
+
+    $cek_intern = mysqli_query($conn, "SELECT * FROM intern_detail WHERE divisi_id=$id");
+    if (mysqli_num_rows($cek_intern) > 0) {
+        $_SESSION['flash_error'] = "Divisi tidak bisa dihapus karena masih memiliki intern terdaftar!";
+    } else {
+        mysqli_query($conn, "DELETE FROM divisi WHERE id=$id");
+        $_SESSION['flash_success'] = "Divisi berhasil dihapus!";
+    }
+    header("Location: " . BASE_URL . "role/admin/divisi.php");
+    exit;
 }
 
-// AMBIL DATA DIVISI + JUMLAH INTERN
+// HAPUS MASSAL
+if (isset($_POST['aksi']) && $_POST['aksi'] === "hapus_massal") {
+    $ids = isset($_POST['ids']) ? $_POST['ids'] : [];
+    $berhasil = 0;
+    $dilewati = 0;
+
+    foreach ($ids as $id) {
+        $id = (int) $id;
+        $cek = mysqli_query($conn, "SELECT * FROM intern_detail WHERE divisi_id=$id");
+        if (mysqli_num_rows($cek) > 0) {
+            $dilewati++;
+        } else {
+            mysqli_query($conn, "DELETE FROM divisi WHERE id=$id");
+            $berhasil++;
+        }
+    }
+
+    $pesan = "";
+    if ($berhasil > 0) $pesan .= "$berhasil divisi berhasil dihapus.";
+    if ($dilewati > 0) $pesan .= ($berhasil > 0 ? " " : "") . "$dilewati divisi dilewati karena masih memiliki intern.";
+    $_SESSION['flash_success'] = $pesan;
+    header("Location: " . BASE_URL . "role/admin/divisi.php");
+    exit;
+}
+
+// HAPUS SEMUA
+if (isset($_POST['aksi']) && $_POST['aksi'] === "hapus_semua") {
+    $semua = mysqli_query($conn, "SELECT id FROM divisi");
+    $berhasil = 0;
+    $dilewati = 0;
+
+    while ($d = mysqli_fetch_assoc($semua)) {
+        $id = (int) $d['id'];
+        $cek = mysqli_query($conn, "SELECT * FROM intern_detail WHERE divisi_id=$id");
+        if (mysqli_num_rows($cek) > 0) {
+            $dilewati++;
+        } else {
+            mysqli_query($conn, "DELETE FROM divisi WHERE id=$id");
+            $berhasil++;
+        }
+    }
+
+    $pesan = "";
+    if ($berhasil > 0) $pesan .= "$berhasil divisi berhasil dihapus.";
+    if ($dilewati > 0) $pesan .= ($berhasil > 0 ? " " : "") . "$dilewati divisi dilewati karena masih memiliki intern.";
+    $_SESSION['flash_success'] = $pesan;
+    header("Location: " . BASE_URL . "role/admin/divisi.php");
+    exit;
+}
+
+// FLASH MESSAGE
+if (isset($_SESSION['flash_success'])) {
+    $flash_success = $_SESSION['flash_success'];
+    unset($_SESSION['flash_success']);
+}
+if (isset($_SESSION['flash_error'])) {
+    $flash_error = $_SESSION['flash_error'];
+    unset($_SESSION['flash_error']);
+}
+
+// AMBIL DATA DIVISI
 $data = mysqli_query($conn, "
     SELECT d.*,
-        COUNT(DISTINCT id2.user_id) as jumlah_intern,
-        COUNT(DISTINCT u.id) as jumlah_manajer
+        COUNT(DISTINCT id2.user_id) as jumlah_intern
     FROM divisi d
     LEFT JOIN intern_detail id2 ON d.id = id2.divisi_id
-    LEFT JOIN users u ON d.id = (
-        SELECT divisi_id FROM intern_detail WHERE manajer_id = u.id LIMIT 1
-    ) AND u.role = 'manajer'
     GROUP BY d.id
     ORDER BY d.created_at DESC
 ");
@@ -92,21 +153,24 @@ include BASE_PATH . "includes/sidebar.php";
     </div>
 </div>
 
-<?php if ($success): ?>
-    <div class="alert alert-success d-flex align-items-center rounded-3 shadow-sm mb-4" role="alert">
-        <i class="bi bi-check-circle-fill me-2 fs-5"></i>
-        <div><?= $success ?></div>
+<!-- NOTIFIKASI LUAR -->
+<?php if ($flash_success): ?>
+    <div id="alertLuar" class="custom-alert mb-4">
+        <div class="alert alert-success d-flex align-items-center rounded-3 shadow-sm mb-0" role="alert">
+            <i class="bi bi-check-circle-fill me-2 fs-5 flex-shrink-0"></i>
+            <div><?= $flash_success ?></div>
+        </div>
+    </div>
+<?php elseif ($flash_error): ?>
+    <div id="alertLuar" class="custom-alert mb-4">
+        <div class="alert alert-danger d-flex align-items-center rounded-3 shadow-sm mb-0" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5 flex-shrink-0"></i>
+            <div><?= $flash_error ?></div>
+        </div>
     </div>
 <?php endif; ?>
 
-<?php if ($error): ?>
-    <div class="alert alert-danger d-flex align-items-center rounded-3 shadow-sm mb-4" role="alert">
-        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-        <div><?= $error ?></div>
-    </div>
-<?php endif; ?>
-
-<!-- SEARCH -->
+<!-- SEARCH + TOMBOL HAPUS -->
 <div class="card border-0 shadow mb-4 card-solid">
     <div class="p-4">
         <div class="row g-3 align-items-end">
@@ -120,6 +184,16 @@ include BASE_PATH . "includes/sidebar.php";
                         placeholder="Nama divisi...">
                 </div>
             </div>
+            <div class="col-md-7 d-flex gap-2 justify-content-md-end flex-wrap">
+                <button id="btnHapusDipilih" class="btn btn-danger rounded-3 fw-semibold d-none"
+                    onclick="konfirmasiHapusMassal()">
+                    <i class="bi bi-trash-fill me-1"></i>Hapus Dipilih (<span id="jumlahDipilih">0</span>)
+                </button>
+                <button class="btn btn-outline-danger rounded-3 fw-semibold"
+                    onclick="konfirmasiHapusSemua()">
+                    <i class="bi bi-trash3-fill me-1"></i>Hapus Semua
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -131,10 +205,12 @@ include BASE_PATH . "includes/sidebar.php";
             <table class="table table-striped align-middle mb-0 custom-table" id="tabelDivisi">
                 <thead>
                     <tr>
-                        <th class="ps-3">No</th>
+                        <th class="ps-3" style="width:40px;">
+                            <input type="checkbox" id="checkAll" class="form-check-input">
+                        </th>
+                        <th style="width:50px;">No</th>
                         <th>Nama Divisi</th>
                         <th>Jumlah Intern</th>
-                        <th>Dibuat</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -150,16 +226,19 @@ include BASE_PATH . "includes/sidebar.php";
 
                     <?php $no = 1;
                     foreach ($rows as $row): ?>
-                        <tr data-nama="<?= strtolower(htmlspecialchars($row['nama_divisi'])) ?>">
-                            <td class="ps-3 col-no"><?= $no++ ?></td>
-                            <td class="fw-semibold"><?= htmlspecialchars($row['nama_divisi']) ?></td>
+                        <tr data-nama="<?= strtolower(htmlspecialchars($row['nama_divisi'])) ?>"
+                            data-id="<?= $row['id'] ?>"
+                            data-intern="<?= $row['jumlah_intern'] ?>">
+                            <td class="ps-3">
+                                <input type="checkbox" class="form-check-input check-item"
+                                    value="<?= $row['id'] ?>">
+                            </td>
+                            <td class="col-no"><?= $no++ ?></td>
+                            <td class="fw-semibold col-nama"><?= htmlspecialchars($row['nama_divisi']) ?></td>
                             <td>
                                 <span class="badge bg-info text-dark rounded-pill px-3 py-2">
                                     <?= $row['jumlah_intern'] ?> Intern
                                 </span>
-                            </td>
-                            <td class="text-muted" style="font-size:13px;">
-                                <?= date("d M Y", strtotime($row['created_at'])) ?>
                             </td>
                             <td>
                                 <button class="btn btn-sm btn-warning rounded-3 me-1 fw-semibold"
@@ -190,6 +269,29 @@ include BASE_PATH . "includes/sidebar.php";
                 <div class="small mt-1">Coba kata kunci lain</div>
             </div>
         </div>
+
+        <!-- PAGINATION -->
+        <div id="paginationWrapper" class="mt-4">
+            <div class="d-flex flex-column align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap justify-content-center">
+                    <div class="pagination-container d-flex align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-secondary rounded-3 px-3" id="btnFirst" onclick="goPage(1)">« First</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-3 px-3" id="btnPrev" onclick="goPage(currentPage - 1)">‹ Prev</button>
+                        <div id="pageNumbers" class="d-flex gap-1"></div>
+                        <button class="btn btn-sm btn-outline-secondary rounded-3 px-3" id="btnNext" onclick="goPage(currentPage + 1)">Next ›</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-3 px-3" id="btnLast" onclick="goPage(totalPages)">Last »</button>
+                    </div>
+                    <select id="perPageSelect" class="form-select form-select-sm rounded-3" style="width:auto;">
+                        <option value="10">10/hal</option>
+                        <option value="25">25/hal</option>
+                        <option value="50">50/hal</option>
+                        <option value="100">100/hal</option>
+                        <option value="all">Semua</option>
+                    </select>
+                </div>
+                <div id="paginationInfo" class="text-muted" style="font-size:13px;"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -206,10 +308,19 @@ include BASE_PATH . "includes/sidebar.php";
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body px-4 py-4">
+                    <?php if ($modal_error_tambah): ?>
+                        <div id="alertTambah" class="custom-alert mb-3">
+                            <div class="alert alert-danger d-flex align-items-center rounded-3 shadow-sm mb-0" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill me-2 fs-5 flex-shrink-0"></i>
+                                <div><?= $modal_error_tambah ?></div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Nama Divisi</label>
-                        <input type="text" name="nama_divisi" class="form-control rounded-3" required
-                            placeholder="Contoh: Divisi IT, Divisi Marketing...">
+                        <input type="text" name="nama_divisi" id="inputTambahNama" class="form-control rounded-3" required
+                            placeholder="Contoh: Divisi IT, Divisi Marketing..."
+                            value="<?= $modal_error_tambah ? htmlspecialchars($_POST['nama_divisi'] ?? '', ENT_QUOTES) : '' ?>">
                     </div>
                 </div>
                 <div class="modal-footer border-0 px-4 pb-4 pt-0">
@@ -241,6 +352,14 @@ include BASE_PATH . "includes/sidebar.php";
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body px-4 py-4">
+                    <?php if ($modal_error_edit): ?>
+                        <div id="alertEdit" class="custom-alert mb-3">
+                            <div class="alert alert-danger d-flex align-items-center rounded-3 shadow-sm mb-0" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill me-2 fs-5 flex-shrink-0"></i>
+                                <div><?= $modal_error_edit ?></div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Nama Divisi</label>
                         <input type="text" name="nama_divisi" id="editNamaDivisi" class="form-control rounded-3" required>
@@ -261,7 +380,7 @@ include BASE_PATH . "includes/sidebar.php";
     </div>
 </div>
 
-<!-- MODAL HAPUS -->
+<!-- MODAL HAPUS SATU -->
 <div class="modal fade" id="modalHapus" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
         <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
@@ -285,6 +404,71 @@ include BASE_PATH . "includes/sidebar.php";
                     <a id="hapusLink" href="#" class="btn btn-danger rounded-3 fw-semibold flex-fill">
                         <i class="bi bi-trash-fill me-1"></i>Ya, Hapus
                     </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HAPUS MASSAL -->
+<div class="modal fade" id="modalHapusMassal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-header-custom modal-header-hapus">
+                <h5 class="text-white fw-bold mb-0">
+                    <i class="bi bi-trash-fill me-2"></i>Hapus Dipilih
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-4 text-center">
+                <div style="font-size:2.5rem;" class="mb-3">⚠️</div>
+                <p class="fw-semibold mb-1">Yakin ingin menghapus <span id="masalJumlah" class="text-danger"></span> divisi yang dipilih?</p>
+                <p class="text-muted small mb-0">Divisi yang masih memiliki intern tidak akan dihapus.</p>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-light rounded-3 fw-semibold flex-fill" data-bs-dismiss="modal">
+                        <i class="bi bi-arrow-left me-1"></i>Batal
+                    </button>
+                    <form method="POST" id="formHapusMassal" class="flex-fill">
+                        <input type="hidden" name="aksi" value="hapus_massal">
+                        <div id="inputIdsMassal"></div>
+                        <button type="submit" class="btn btn-danger rounded-3 fw-semibold w-100">
+                            <i class="bi bi-trash-fill me-1"></i>Ya, Hapus
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HAPUS SEMUA -->
+<div class="modal fade" id="modalHapusSemua" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-header-custom modal-header-hapus">
+                <h5 class="text-white fw-bold mb-0">
+                    <i class="bi bi-trash3-fill me-2"></i>Hapus Semua
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-4 text-center">
+                <div style="font-size:2.5rem;" class="mb-3">⚠️</div>
+                <p class="fw-semibold mb-1">Yakin ingin menghapus semua divisi?</p>
+                <p class="text-muted small mb-0">Divisi yang masih memiliki intern tidak akan dihapus.</p>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-light rounded-3 fw-semibold flex-fill" data-bs-dismiss="modal">
+                        <i class="bi bi-arrow-left me-1"></i>Batal
+                    </button>
+                    <form method="POST" class="flex-fill">
+                        <input type="hidden" name="aksi" value="hapus_semua">
+                        <button type="submit" class="btn btn-danger rounded-3 fw-semibold w-100">
+                            <i class="bi bi-trash3-fill me-1"></i>Ya, Hapus Semua
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -369,6 +553,27 @@ include BASE_PATH . "includes/sidebar.php";
         border-color: #adb5bd;
     }
 
+    .custom-alert {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.6s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .custom-alert.show {
+        max-height: 200px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .custom-alert.hide {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-6px);
+        margin-bottom: 0 !important;
+    }
+
     mark.highlight {
         background-color: #fff3cd;
         color: inherit;
@@ -381,15 +586,151 @@ include BASE_PATH . "includes/sidebar.php";
         background-color: #fffbea !important;
     }
 
+    .pagination-container .btn {
+        min-width: 36px;
+    }
+
+    .pagination-container .btn.active {
+        background: linear-gradient(135deg, #2f8f9d 0%, #1a6b76 100%);
+        color: #fff;
+        border-color: transparent;
+    }
+
     @media (max-width: 576px) {
         .divisi-banner .d-flex {
             flex-direction: column;
             gap: 12px;
         }
+
+        .pagination-container {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
     }
 </style>
 
 <script>
+    // PAGINATION
+    let currentPage = 1;
+    let perPage = 10;
+    let filteredRows = [];
+    let totalPages = 1;
+
+    function getAllRows() {
+        return Array.from(document.querySelectorAll('#tabelBody tr:not(.row-empty)'));
+    }
+
+    function applyFilter() {
+        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+        const all = getAllRows();
+        filteredRows = all.filter(tr => {
+            const nama = tr.dataset.nama || '';
+            return !keyword || nama.includes(keyword);
+        });
+        currentPage = 1;
+        renderTable();
+    }
+
+    function renderTable() {
+        const all = getAllRows();
+        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+
+        all.forEach(tr => {
+            tr.classList.add('d-none');
+            tr.classList.remove('row-match');
+        });
+
+        const isAll = perPage === 'all';
+        totalPages = isAll ? 1 : Math.ceil(filteredRows.length / perPage);
+        if (currentPage > totalPages) currentPage = totalPages || 1;
+
+        const start = isAll ? 0 : (currentPage - 1) * perPage;
+        const end = isAll ? filteredRows.length : start + perPage;
+        const pageRows = filteredRows.slice(start, end);
+
+        pageRows.forEach((tr, i) => {
+            tr.classList.remove('d-none');
+            if (keyword) tr.classList.add('row-match');
+            tr.querySelector('.col-no').textContent = start + i + 1;
+
+            const cell = tr.querySelector('.col-nama');
+            const orig = tr.dataset.nama.replace(/\b\w/g, c => c.toUpperCase());
+            cell.innerHTML = keyword ? highlightText(orig, keyword) : orig;
+        });
+
+        document.getElementById('emptySearch').classList.toggle('d-none', filteredRows.length > 0);
+        document.getElementById('tabelDivisi').classList.toggle('d-none', filteredRows.length === 0);
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const isAll = perPage === 'all';
+        const total = filteredRows.length;
+        const start = isAll ? 1 : ((currentPage - 1) * perPage) + 1;
+        const end = isAll ? total : Math.min(currentPage * perPage, total);
+
+        document.getElementById('btnFirst').disabled = currentPage <= 1;
+        document.getElementById('btnPrev').disabled = currentPage <= 1;
+        document.getElementById('btnNext').disabled = currentPage >= totalPages;
+        document.getElementById('btnLast').disabled = currentPage >= totalPages;
+
+        const pageNumbers = document.getElementById('pageNumbers');
+        pageNumbers.innerHTML = '';
+
+        if (!isAll) {
+            let pages = [];
+            if (totalPages <= 5) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                if (currentPage > 3) pages.push('...');
+                for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                    pages.push(i);
+                }
+                if (currentPage < totalPages - 2) pages.push('...');
+                pages.push(totalPages);
+            }
+
+            pages.forEach(p => {
+                if (p === '...') {
+                    const span = document.createElement('span');
+                    span.className = 'px-1 align-self-center text-muted';
+                    span.textContent = '...';
+                    pageNumbers.appendChild(span);
+                } else {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-sm btn-outline-secondary rounded-3 px-3' + (p === currentPage ? ' active' : '');
+                    btn.textContent = p;
+                    btn.onclick = () => goPage(p);
+                    pageNumbers.appendChild(btn);
+                }
+            });
+        }
+
+        const info = total === 0 ?
+            'Tidak ada data' :
+            isAll ?
+            `Menampilkan semua ${total} data` :
+            `Menampilkan ${start}–${end} dari ${total} data • Halaman ${currentPage} / ${totalPages}`;
+
+        document.getElementById('paginationInfo').textContent = info;
+        document.getElementById('paginationWrapper').style.display = total === 0 ? 'none' : '';
+    }
+
+    function goPage(p) {
+        if (p < 1 || p > totalPages) return;
+        currentPage = p;
+        renderTable();
+    }
+
+    document.getElementById('perPageSelect').addEventListener('change', function() {
+        perPage = this.value === 'all' ? 'all' : parseInt(this.value);
+        currentPage = 1;
+        renderTable();
+    });
+
+    // SEARCH
     function escapeRegex(s) {
         return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -400,65 +741,144 @@ include BASE_PATH . "includes/sidebar.php";
         return text.replace(re, '<mark class="highlight">$1</mark>');
     }
 
-    function filterTabel() {
-        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
-        const rows = document.querySelectorAll('#tabelBody tr:not(.row-empty)');
-        let visible = 0;
+    document.getElementById('searchInput').addEventListener('input', applyFilter);
 
-        rows.forEach(tr => {
-            const nama = tr.dataset.nama || '';
-            const match = !keyword || nama.includes(keyword);
-
-            if (match) {
-                tr.classList.remove('d-none');
-                tr.classList.toggle('row-match', keyword.length > 0);
-                const cell = tr.querySelectorAll('td')[1];
-                const orig = tr.dataset.nama.replace(/\b\w/g, c => c.toUpperCase());
-                cell.innerHTML = keyword ? highlightText(orig, keyword) : orig;
-                visible++;
-            } else {
-                tr.classList.add('d-none');
-                tr.classList.remove('row-match');
-            }
+    // CHECKBOX
+    document.getElementById('checkAll').addEventListener('change', function() {
+        const visible = filteredRows.filter(tr => !tr.classList.contains('d-none'));
+        visible.forEach(tr => {
+            tr.querySelector('.check-item').checked = this.checked;
         });
+        updateHapusDipilih();
+    });
 
-        let no = 1;
-        rows.forEach(tr => {
-            if (!tr.classList.contains('d-none')) {
-                tr.querySelector('.col-no').textContent = no++;
-            }
-        });
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('check-item')) {
+            updateHapusDipilih();
+            const all = filteredRows.filter(tr => !tr.classList.contains('d-none'));
+            const checked = all.filter(tr => tr.querySelector('.check-item').checked);
+            document.getElementById('checkAll').checked = all.length > 0 && checked.length === all.length;
+        }
+    });
 
-        document.getElementById('emptySearch').classList.toggle('d-none', visible > 0);
-        document.getElementById('tabelDivisi').classList.toggle('d-none', visible === 0);
+    function updateHapusDipilih() {
+        const checked = document.querySelectorAll('.check-item:checked');
+        const btn = document.getElementById('btnHapusDipilih');
+        document.getElementById('jumlahDipilih').textContent = checked.length;
+        btn.classList.toggle('d-none', checked.length === 0);
     }
 
-    document.getElementById('searchInput').addEventListener('input', filterTabel);
+    // MODAL HAPUS SATU
+    function konfirmasiHapus(id, nama, jumlahIntern) {
+        document.getElementById('hapusNama').textContent = nama;
+        document.getElementById('hapusInfo').textContent = jumlahIntern > 0 ?
+            'Divisi ini masih memiliki ' + jumlahIntern + ' intern terdaftar dan tidak bisa dihapus.' :
+            'Data yang dihapus tidak dapat dikembalikan.';
 
+        const hapusBtn = document.getElementById('hapusLink');
+        if (jumlahIntern > 0) {
+            hapusBtn.href = '#';
+            hapusBtn.classList.add('disabled');
+            hapusBtn.setAttribute('aria-disabled', 'true');
+        } else {
+            hapusBtn.href = '?hapus=' + id;
+            hapusBtn.classList.remove('disabled');
+            hapusBtn.removeAttribute('aria-disabled');
+        }
+        new bootstrap.Modal(document.getElementById('modalHapus')).show();
+    }
+
+    // MODAL HAPUS MASSAL
+    function konfirmasiHapusMassal() {
+        const checked = document.querySelectorAll('.check-item:checked');
+        document.getElementById('masalJumlah').textContent = checked.length;
+
+        const container = document.getElementById('inputIdsMassal');
+        container.innerHTML = '';
+        checked.forEach(cb => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'ids[]';
+            inp.value = cb.value;
+            container.appendChild(inp);
+        });
+        new bootstrap.Modal(document.getElementById('modalHapusMassal')).show();
+    }
+
+    // MODAL HAPUS SEMUA
+    function konfirmasiHapusSemua() {
+        new bootstrap.Modal(document.getElementById('modalHapusSemua')).show();
+    }
+
+    // MODAL EDIT
     function bukaModalEdit(id, nama) {
         document.getElementById('editDivisiId').value = id;
         document.getElementById('editNamaDivisi').value = nama;
         new bootstrap.Modal(document.getElementById('modalEdit')).show();
     }
 
-    function konfirmasiHapus(id, nama, jumlahIntern) {
-        document.getElementById('hapusNama').textContent = nama;
-        document.getElementById('hapusInfo').textContent = jumlahIntern > 0 ?
-            'Divisi ini masih memiliki ' + jumlahIntern + ' intern terdaftar dan tidak bisa dihapus.' :
-            'Data yang dihapus tidak dapat dikembalikan.';
-        document.getElementById('hapusLink').href = jumlahIntern > 0 ? '#' : '?hapus=' + id;
+    // AUTOFOCUS MODAL TAMBAH
+    document.getElementById('modalTambah').addEventListener('shown.bs.modal', function() {
+        document.getElementById('inputTambahNama').focus();
+    });
 
-        const hapusBtn = document.getElementById('hapusLink');
-        if (jumlahIntern > 0) {
-            hapusBtn.classList.add('disabled');
-            hapusBtn.setAttribute('aria-disabled', 'true');
-        } else {
-            hapusBtn.classList.remove('disabled');
-            hapusBtn.removeAttribute('aria-disabled');
+    // AUTOFOCUS MODAL EDIT
+    document.getElementById('modalEdit').addEventListener('shown.bs.modal', function() {
+        document.getElementById('editNamaDivisi').focus();
+    });
+
+    // ANIMASI ALERT
+    function aktivasiAlert(el, autoHide = true) {
+        if (!el) return;
+        setTimeout(() => el.classList.add('show'), 50);
+        if (autoHide) {
+            setTimeout(() => {
+                el.classList.remove('show');
+                el.classList.add('hide');
+            }, 4500);
         }
-
-        new bootstrap.Modal(document.getElementById('modalHapus')).show();
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Autofocus search
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.focus();
+
+        // Init pagination
+        filteredRows = getAllRows();
+        renderTable();
+
+        // Alert luar
+        aktivasiAlert(document.getElementById('alertLuar'));
+
+        // Alert modal tambah — buka modal dulu lalu animasi
+        <?php if ($modal_error_tambah): ?>
+            const modalTambahEl = document.getElementById('modalTambah');
+            const modalTambah = new bootstrap.Modal(modalTambahEl);
+            modalTambah.show();
+            modalTambahEl.addEventListener('shown.bs.modal', function() {
+                aktivasiAlert(document.getElementById('alertTambah'));
+                document.getElementById('inputTambahNama').focus();
+            }, {
+                once: true
+            });
+        <?php endif; ?>
+
+        // Alert modal edit — buka modal dulu lalu animasi
+        <?php if ($modal_error_edit): ?>
+            const modalEditEl = document.getElementById('modalEdit');
+            document.getElementById('editDivisiId').value = <?= $edit_id_aktif ?? 0 ?>;
+            document.getElementById('editNamaDivisi').value = '<?= $edit_nama_aktif ?? '' ?>';
+            const modalEdit = new bootstrap.Modal(modalEditEl);
+            modalEdit.show();
+            modalEditEl.addEventListener('shown.bs.modal', function() {
+                aktivasiAlert(document.getElementById('alertEdit'));
+                document.getElementById('editNamaDivisi').focus();
+            }, {
+                once: true
+            });
+        <?php endif; ?>
+    });
 </script>
 
 <?php include BASE_PATH . "includes/footer.php"; ?>

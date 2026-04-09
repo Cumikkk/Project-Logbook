@@ -8,9 +8,9 @@ require_once __DIR__ . '/../vendor/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/../vendor/phpmailer/src/SMTP.php';
 
 define('MAIL_HOST',     'smtp.gmail.com');
-define('MAIL_USERNAME', 'emailkamu@gmail.com');
-define('MAIL_PASSWORD', 'app_password_kamu');
-define('MAIL_FROM',     'emailkamu@gmail.com');
+define('MAIL_USERNAME', 'm.fahrulalfanani200505@gmail.com');
+define('MAIL_PASSWORD', 'tgqd fazs ipwn kery');
+define('MAIL_FROM',     'm.fahrulalfanani200505@gmail.com');
 define('MAIL_NAME',     'Logbook Magang');
 
 function buatMailer()
