@@ -1008,66 +1008,77 @@ include BASE_PATH . "includes/sidebar.php";
         document.getElementById('editNamaDivisi').focus();
     });
 
-    // AJAX SUBMIT TAMBAH
-    document.getElementById('formTambah').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const nama = document.getElementById('inputTambahNama').value.trim();
-        const btn = document.getElementById('btnSubmitTambah');
-        btn.disabled = true;
+    // AJAX CEK DUPLIKAT TAMBAH — real-time saat mengetik
+    let namaTambahTimer = null;
 
-        const fd = new FormData();
-        fd.append('aksi', 'cek_duplikat');
-        fd.append('nama_divisi', nama);
-
-        fetch('', {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.duplikat) {
-                    tampilkanAlert('alertTambah', 'Nama divisi sudah ada!');
-                    btn.disabled = false;
-                } else {
-                    this.submit();
-                }
-            })
-            .catch(() => {
-                tampilkanAlert('alertTambah', 'Terjadi kesalahan. Silakan coba lagi.');
-                btn.disabled = false;
-            });
+    document.getElementById('inputTambahNama').addEventListener('input', function() {
+        clearTimeout(namaTambahTimer);
+        const val = this.value.trim();
+        if (!val) {
+            sembunyikanAlert('alertTambah');
+            document.getElementById('btnSubmitTambah').disabled = false;
+            return;
+        }
+        namaTambahTimer = setTimeout(() => {
+            const fd = new FormData();
+            fd.append('aksi', 'cek_duplikat');
+            fd.append('nama_divisi', val);
+            fetch('', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.duplikat) {
+                        tampilkanAlert('alertTambah', 'Nama divisi sudah ada!');
+                        document.getElementById('btnSubmitTambah').disabled = true;
+                    } else {
+                        sembunyikanAlert('alertTambah');
+                        document.getElementById('btnSubmitTambah').disabled = false;
+                    }
+                })
+                .catch(() => {
+                    tampilkanAlert('alertTambah', 'Terjadi kesalahan. Silakan coba lagi.');
+                    document.getElementById('btnSubmitTambah').disabled = false;
+                });
+        }, 500);
     });
 
-    // AJAX SUBMIT EDIT
-    document.getElementById('formEdit').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const nama = document.getElementById('editNamaDivisi').value.trim();
-        const id = document.getElementById('editDivisiId').value;
-        const btn = document.getElementById('btnSubmitEdit');
-        btn.disabled = true;
+    // AJAX CEK DUPLIKAT EDIT — real-time saat mengetik
+    let namaEditTimer = null;
 
-        const fd = new FormData();
-        fd.append('aksi', 'cek_duplikat');
-        fd.append('nama_divisi', nama);
-        fd.append('divisi_id', id);
-
-        fetch('', {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.duplikat) {
-                    tampilkanAlert('alertEdit', 'Nama divisi sudah digunakan!');
-                    btn.disabled = false;
-                } else {
-                    this.submit();
-                }
-            })
-            .catch(() => {
-                tampilkanAlert('alertEdit', 'Terjadi kesalahan. Silakan coba lagi.');
-                btn.disabled = false;
-            });
+    document.getElementById('editNamaDivisi').addEventListener('input', function() {
+        clearTimeout(namaEditTimer);
+        const val = this.value.trim();
+        if (!val) {
+            sembunyikanAlert('alertEdit');
+            document.getElementById('btnSubmitEdit').disabled = false;
+            return;
+        }
+        namaEditTimer = setTimeout(() => {
+            const fd = new FormData();
+            fd.append('aksi', 'cek_duplikat');
+            fd.append('nama_divisi', val);
+            fd.append('divisi_id', document.getElementById('editDivisiId').value);
+            fetch('', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.duplikat) {
+                        tampilkanAlert('alertEdit', 'Nama divisi sudah digunakan!');
+                        document.getElementById('btnSubmitEdit').disabled = true;
+                    } else {
+                        sembunyikanAlert('alertEdit');
+                        document.getElementById('btnSubmitEdit').disabled = false;
+                    }
+                })
+                .catch(() => {
+                    tampilkanAlert('alertEdit', 'Terjadi kesalahan. Silakan coba lagi.');
+                    document.getElementById('btnSubmitEdit').disabled = false;
+                });
+        }, 500);
     });
 
     // FLASH DARI SESSIONSTORAGE (hasil hapus massal/semua berhasil)

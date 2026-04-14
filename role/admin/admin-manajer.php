@@ -18,6 +18,34 @@ if (isset($_GET['hapus'])) {
     exit;
 }
 
+// CEK USERNAME (AJAX)
+if (isset($_POST['aksi']) && $_POST['aksi'] === "cek_username") {
+    $username = mysqli_real_escape_string($conn, trim($_POST['username']));
+    $exclude_id = isset($_POST['exclude_id']) ? (int) $_POST['exclude_id'] : 0;
+    if ($exclude_id > 0) {
+        $cek = mysqli_query($conn, "SELECT id FROM users WHERE username='$username' AND id != $exclude_id");
+    } else {
+        $cek = mysqli_query($conn, "SELECT id FROM users WHERE username='$username'");
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['exists' => mysqli_num_rows($cek) > 0]);
+    exit;
+}
+
+// CEK EMAIL (AJAX)
+if (isset($_POST['aksi']) && $_POST['aksi'] === "cek_email") {
+    $email = mysqli_real_escape_string($conn, trim($_POST['email']));
+    $exclude_id = isset($_POST['exclude_id']) ? (int) $_POST['exclude_id'] : 0;
+    if ($exclude_id > 0) {
+        $cek = mysqli_query($conn, "SELECT id FROM users WHERE email='$email' AND id != $exclude_id");
+    } else {
+        $cek = mysqli_query($conn, "SELECT id FROM users WHERE email='$email'");
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['exists' => mysqli_num_rows($cek) > 0]);
+    exit;
+}
+
 // HAPUS MASSAL
 if (isset($_POST['aksi']) && $_POST['aksi'] === "hapus_massal") {
     $ids = isset($_POST['ids']) ? $_POST['ids'] : [];
@@ -34,14 +62,10 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === "hapus_massal") {
         }
     }
     header('Content-Type: application/json');
-    if ($berhasil === 0 && $dilewati > 0) {
-        echo json_encode(['status' => 'gagal', 'pesan' => 'Semua data yang dipilih tidak bisa dihapus karena termasuk akun Anda sendiri.']);
-    } else {
-        $pesan = "";
-        if ($berhasil > 0) $pesan .= "$berhasil pengguna berhasil dihapus.";
-        if ($dilewati > 0) $pesan .= ($berhasil > 0 ? " " : "") . "$dilewati data dilewati (akun sendiri tidak bisa dihapus).";
-        echo json_encode(['status' => 'berhasil', 'pesan' => $pesan]);
-    }
+    $pesan = "";
+    if ($berhasil > 0) $pesan .= "$berhasil pengguna berhasil dihapus.";
+    if ($dilewati > 0) $pesan .= ($berhasil > 0 ? " " : "") . "$dilewati data dilewati (akun sendiri tidak bisa dihapus).";
+    echo json_encode(['status' => 'berhasil', 'pesan' => $pesan]);
     exit;
 }
 
@@ -77,25 +101,19 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === "hapus_semua") {
 if (isset($_POST['aksi']) && $_POST['aksi'] === "tambah") {
     $nama      = mysqli_real_escape_string($conn, trim($_POST['nama']));
     $username  = mysqli_real_escape_string($conn, trim($_POST['username']));
-    $email     = mysqli_real_escape_string($conn, trim($_POST['email']));
     $password  = mysqli_real_escape_string($conn, $_POST['password']);
     $role      = $_POST['role'];
     $divisi_id = isset($_POST['divisi_id']) ? (int) $_POST['divisi_id'] : null;
 
-    $cek = mysqli_query($conn, "SELECT * FROM users WHERE username='$username' OR email='$email'");
-    if (mysqli_num_rows($cek) > 0) {
-        $_SESSION['flash_error'] = "Username atau email sudah digunakan!";
-    } else {
-        mysqli_query($conn, "INSERT INTO users (nama, username, email, password, role, status, created_at)
-            VALUES ('$nama', '$username', '$email', '$password', '$role', 'aktif', NOW())");
-        $user_id = mysqli_insert_id($conn);
+    mysqli_query($conn, "INSERT INTO users (nama, username, email, password, role, status, created_at)
+        VALUES ('$nama', '$username', NULL, '$password', '$role', 'aktif', NOW())");
+    $user_id = mysqli_insert_id($conn);
 
-        if ($role === "manajer" && $divisi_id) {
-            mysqli_query($conn, "UPDATE divisi SET manajer_id=$user_id WHERE id=$divisi_id");
-        }
-
-        $_SESSION['flash_success'] = "Pengguna berhasil ditambahkan!";
+    if ($role === "manajer" && $divisi_id) {
+        mysqli_query($conn, "UPDATE divisi SET manajer_id=$user_id WHERE id=$divisi_id");
     }
+
+    $_SESSION['flash_success'] = "Pengguna berhasil ditambahkan!";
     header("Location: " . BASE_URL . "role/admin/admin-manajer.php");
     exit;
 }
@@ -104,26 +122,28 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === "tambah") {
 if (isset($_POST['aksi']) && $_POST['aksi'] === "edit") {
     $id        = (int) $_POST['user_id'];
     $nama      = mysqli_real_escape_string($conn, trim($_POST['nama']));
+    $username  = mysqli_real_escape_string($conn, trim($_POST['username']));
     $email     = mysqli_real_escape_string($conn, trim($_POST['email']));
+    $password  = mysqli_real_escape_string($conn, $_POST['password']);
     $role      = $_POST['role'];
     $status    = $_POST['status'];
     $divisi_id = isset($_POST['divisi_id']) ? (int) $_POST['divisi_id'] : null;
 
-    $cek = mysqli_query($conn, "SELECT * FROM users WHERE email='$email' AND id != $id");
-    if (mysqli_num_rows($cek) > 0) {
-        $_SESSION['flash_error'] = "Email sudah digunakan pengguna lain!";
-    } else {
-        mysqli_query($conn, "UPDATE users SET nama='$nama', email='$email', role='$role', status='$status' WHERE id=$id");
-
-        if ($role === "manajer" && $divisi_id) {
-            mysqli_query($conn, "UPDATE divisi SET manajer_id=NULL WHERE manajer_id=$id");
-            mysqli_query($conn, "UPDATE divisi SET manajer_id=$id WHERE id=$divisi_id");
-        } elseif ($role === "admin") {
-            mysqli_query($conn, "UPDATE divisi SET manajer_id=NULL WHERE manajer_id=$id");
-        }
-
-        $_SESSION['flash_success'] = "Pengguna berhasil diperbarui!";
+    $update = "UPDATE users SET nama='$nama', username='$username', email='$email', role='$role', status='$status'";
+    if (!empty($password)) {
+        $update .= ", password='$password'";
     }
+    $update .= " WHERE id=$id";
+    mysqli_query($conn, $update);
+
+    if ($role === "manajer" && $divisi_id) {
+        mysqli_query($conn, "UPDATE divisi SET manajer_id=NULL WHERE manajer_id=$id");
+        mysqli_query($conn, "UPDATE divisi SET manajer_id=$id WHERE id=$divisi_id");
+    } elseif ($role === "admin") {
+        mysqli_query($conn, "UPDATE divisi SET manajer_id=NULL WHERE manajer_id=$id");
+    }
+
+    $_SESSION['flash_success'] = "Pengguna berhasil diperbarui!";
     header("Location: " . BASE_URL . "role/admin/admin-manajer.php");
     exit;
 }
@@ -231,7 +251,7 @@ include BASE_PATH . "includes/sidebar.php";
                     (<span id="jumlahDipilih">0</span>)
                 </button>
                 <button class="btn btn-danger rounded-3 fw-semibold" id="btnHapusSemua"
-                    onclick="konfirmasiHapusSemua()" disabled>
+                    onclick="konfirmasiHapusSemua()">
                     <i class="bi bi-trash3-fill me-1"></i>Hapus Semua
                 </button>
             </div>
@@ -250,8 +270,6 @@ include BASE_PATH . "includes/sidebar.php";
                         <th style="width:50px;">No</th>
                         <th>Nama</th>
                         <th>Username</th>
-                        <th>Email</th>
-                        <th>Password</th>
                         <th>Role</th>
                         <th>Divisi</th>
                         <th>Status</th>
@@ -260,8 +278,8 @@ include BASE_PATH . "includes/sidebar.php";
                 </thead>
                 <tbody id="tabelBody">
                     <?php if (count($rows) === 0): ?>
-                        <tr class="row-empty">
-                            <td colspan="10" class="text-center py-5 text-muted">
+                        <tr class="row-empty-data">
+                            <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-person-x d-block mb-2" style="font-size:2rem;"></i>
                                 <div class="fw-semibold">Belum ada data pengguna</div>
                             </td>
@@ -284,26 +302,6 @@ include BASE_PATH . "includes/sidebar.php";
                             <td class="col-no"><?= $no++ ?></td>
                             <td class="fw-semibold col-nama"><?= htmlspecialchars($row['nama']) ?></td>
                             <td class="col-username"><?= htmlspecialchars($row['username']) ?></td>
-
-                            <!-- EMAIL -->
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="val-email" data-val="<?= htmlspecialchars($row['email']) ?>">••••••••</span>
-                                    <button class="btn btn-sm btn-link p-0 text-muted toggle-val" data-target="email">
-                                        <i class="bi bi-eye-slash"></i>
-                                    </button>
-                                </div>
-                            </td>
-
-                            <!-- PASSWORD -->
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="val-password" data-val="<?= htmlspecialchars($row['password']) ?>">••••••••</span>
-                                    <button class="btn btn-sm btn-link p-0 text-muted toggle-val" data-target="password">
-                                        <i class="bi bi-eye-slash"></i>
-                                    </button>
-                                </div>
-                            </td>
 
                             <!-- ROLE -->
                             <td>
@@ -338,6 +336,7 @@ include BASE_PATH . "includes/sidebar.php";
                                     onclick="bukaModalEdit(
                                         <?= $row['id'] ?>,
                                         '<?= htmlspecialchars($row['nama'], ENT_QUOTES) ?>',
+                                        '<?= htmlspecialchars($row['username'], ENT_QUOTES) ?>',
                                         '<?= htmlspecialchars($row['email'], ENT_QUOTES) ?>',
                                         '<?= $row['role'] ?>',
                                         '<?= $row['status'] ?>',
@@ -356,15 +355,17 @@ include BASE_PATH . "includes/sidebar.php";
                             </td>
                         </tr>
                     <?php endforeach; ?>
+
+                    <!-- Empty state: search tidak cocok -->
+                    <tr id="emptySearch" class="d-none">
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-search d-block mb-2" style="font-size:2rem;"></i>
+                            <div class="fw-semibold">Tidak ada pengguna yang cocok</div>
+                            <div class="small mt-1">Coba kata kunci lain</div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
-
-            <!-- EMPTY STATE SEARCH -->
-            <div id="emptySearch" class="text-center py-5 text-muted d-none">
-                <i class="bi bi-search d-block mb-2" style="font-size:2rem;"></i>
-                <div class="fw-semibold">Tidak ada pengguna yang cocok</div>
-                <div class="small mt-1">Coba kata kunci lain</div>
-            </div>
         </div>
 
         <!-- PAGINATION -->
@@ -419,11 +420,7 @@ include BASE_PATH . "includes/sidebar.php";
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Username</label>
-                            <input type="text" name="username" class="form-control rounded-3" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Email</label>
-                            <input type="email" name="email" class="form-control rounded-3" required>
+                            <input type="text" name="username" id="inputTambahUsername" class="form-control rounded-3" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Password</label>
@@ -453,7 +450,7 @@ include BASE_PATH . "includes/sidebar.php";
                         <button type="button" class="btn btn-light rounded-3 fw-semibold flex-fill" data-bs-dismiss="modal">
                             <i class="bi bi-arrow-left me-1"></i>Batal
                         </button>
-                        <button type="submit" class="btn btn-pengguna rounded-3 fw-semibold flex-fill">
+                        <button type="submit" id="btnSubmitTambah" class="btn btn-pengguna rounded-3 fw-semibold flex-fill">
                             <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
                         </button>
                     </div>
@@ -467,7 +464,7 @@ include BASE_PATH . "includes/sidebar.php";
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
-            <form method="POST">
+            <form method="POST" id="formEdit">
                 <input type="hidden" name="aksi" value="edit">
                 <input type="hidden" name="user_id" id="editUserId">
                 <div class="modal-header-custom modal-header-edit">
@@ -490,8 +487,16 @@ include BASE_PATH . "includes/sidebar.php";
                             <input type="text" name="nama" id="editNama" class="form-control rounded-3" required>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label fw-semibold">Username</label>
+                            <input type="text" name="username" id="editUsername" class="form-control rounded-3" required>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label fw-semibold">Email</label>
-                            <input type="email" name="email" id="editEmail" class="form-control rounded-3" required>
+                            <input type="email" name="email" id="editEmail" class="form-control rounded-3">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Password Baru <small class="text-muted fw-normal">(kosongkan jika tidak diubah)</small></label>
+                            <input type="text" name="password" id="editPassword" class="form-control rounded-3" placeholder="Kosongkan jika tidak diubah">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Role</label>
@@ -524,7 +529,7 @@ include BASE_PATH . "includes/sidebar.php";
                         <button type="button" class="btn btn-light rounded-3 fw-semibold flex-fill" data-bs-dismiss="modal">
                             <i class="bi bi-arrow-left me-1"></i>Batal
                         </button>
-                        <button type="submit" class="btn btn-warning rounded-3 fw-semibold flex-fill text-white">
+                        <button type="submit" id="btnSubmitEdit" class="btn btn-warning rounded-3 fw-semibold flex-fill text-white">
                             <i class="bi bi-save-fill me-1"></i>Simpan Perubahan
                         </button>
                     </div>
@@ -738,8 +743,8 @@ include BASE_PATH . "includes/sidebar.php";
     }
 
     mark.highlight {
-        background-color: #fff3cd;
-        color: inherit;
+        background-color: #cfe2ff;
+        color: #084298;
         padding: 0 2px;
         border-radius: 3px;
         font-weight: 600;
@@ -747,6 +752,11 @@ include BASE_PATH . "includes/sidebar.php";
 
     tr.row-match td {
         background-color: #fffbea !important;
+    }
+
+    .row-empty-data td,
+    #emptySearch td {
+        background-color: #f1f3f5 !important;
     }
 
     .pagination-container .btn {
@@ -757,15 +767,6 @@ include BASE_PATH . "includes/sidebar.php";
         background: linear-gradient(135deg, #2f8f9d 0%, #1a6b76 100%);
         color: #fff;
         border-color: transparent;
-    }
-
-    .toggle-val i {
-        font-size: 0.95rem;
-        transition: 0.2s;
-    }
-
-    .toggle-val:hover i {
-        color: #2f8f9d !important;
     }
 
     @media (max-width: 576px) {
@@ -826,7 +827,7 @@ include BASE_PATH . "includes/sidebar.php";
     let totalPages = 1;
 
     function getAllRows() {
-        return Array.from(document.querySelectorAll('#tabelBody tr:not(.row-empty)'));
+        return Array.from(document.querySelectorAll('#tabelBody tr:not(.row-empty-data):not(#emptySearch)'));
     }
 
     function escapeRegex(s) {
@@ -896,10 +897,16 @@ include BASE_PATH . "includes/sidebar.php";
             }
         });
 
-        document.getElementById('emptySearch').classList.toggle('d-none', filteredRows.length > 0);
-        document.getElementById('tabelPengguna').classList.toggle('d-none', filteredRows.length === 0);
+        const emptySearch = document.getElementById('emptySearch');
+        const adaData = getAllRows().length > 0;
+        const adaHasil = filteredRows.length > 0;
+        if (adaData && !adaHasil) {
+            emptySearch.classList.remove('d-none');
+        } else {
+            emptySearch.classList.add('d-none');
+        }
 
-        updateTombolHapusSemua();
+        document.getElementById('tabelPengguna').classList.remove('d-none');
         renderPagination();
     }
 
@@ -996,12 +1003,89 @@ include BASE_PATH . "includes/sidebar.php";
         }
     }
 
-    function updateTombolHapusSemua() {
-        const total = getAllRows().length;
-        const btn = document.getElementById('btnHapusSemua');
-        btn.disabled = total <= 1;
-        btn.title = total <= 1 ? 'Tidak bisa digunakan jika data hanya 1' : '';
-    }
+    // AJAX CEK USERNAME TAMBAH
+    let usernameTimer = null;
+
+    document.getElementById('inputTambahUsername').addEventListener('input', function() {
+        clearTimeout(usernameTimer);
+        const val = this.value.trim();
+        if (!val) return;
+        usernameTimer = setTimeout(() => {
+            const fd = new FormData();
+            fd.append('aksi', 'cek_username');
+            fd.append('username', val);
+            fetch('', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.exists) {
+                        tampilkanAlert('alertTambah', 'Username sudah digunakan!');
+                        document.getElementById('btnSubmitTambah').disabled = true;
+                    } else {
+                        sembunyikanAlert('alertTambah');
+                        document.getElementById('btnSubmitTambah').disabled = false;
+                    }
+                });
+        }, 500);
+    });
+
+    // AJAX CEK USERNAME & EMAIL EDIT
+    let usernameEditTimer = null;
+    let emailEditTimer = null;
+
+    document.getElementById('editUsername').addEventListener('input', function() {
+        clearTimeout(usernameEditTimer);
+        const val = this.value.trim();
+        if (!val) return;
+        usernameEditTimer = setTimeout(() => {
+            const fd = new FormData();
+            fd.append('aksi', 'cek_username');
+            fd.append('username', val);
+            fd.append('exclude_id', document.getElementById('editUserId').value);
+            fetch('', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.exists) {
+                        tampilkanAlert('alertEdit', 'Username sudah digunakan pengguna lain!');
+                        document.getElementById('btnSubmitEdit').disabled = true;
+                    } else {
+                        sembunyikanAlert('alertEdit');
+                        document.getElementById('btnSubmitEdit').disabled = false;
+                    }
+                });
+        }, 500);
+    });
+
+    document.getElementById('editEmail').addEventListener('input', function() {
+        clearTimeout(emailEditTimer);
+        const val = this.value.trim();
+        if (!val) return;
+        emailEditTimer = setTimeout(() => {
+            const fd = new FormData();
+            fd.append('aksi', 'cek_email');
+            fd.append('email', val);
+            fd.append('exclude_id', document.getElementById('editUserId').value);
+            fetch('', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.exists) {
+                        tampilkanAlert('alertEdit', 'Email sudah digunakan pengguna lain!');
+                        document.getElementById('btnSubmitEdit').disabled = true;
+                    } else {
+                        sembunyikanAlert('alertEdit');
+                        document.getElementById('btnSubmitEdit').disabled = false;
+                    }
+                });
+        }, 500);
+    });
 
     // AJAX HAPUS MASSAL
     let idsMassal = [];
@@ -1026,13 +1110,8 @@ include BASE_PATH . "includes/sidebar.php";
             })
             .then(r => r.json())
             .then(res => {
-                if (res.status === 'gagal') {
-                    tampilkanAlert('alertMassal', res.pesan);
-                    btn.disabled = false;
-                } else {
-                    sessionStorage.setItem('flash_js', res.pesan);
-                    location.reload();
-                }
+                sessionStorage.setItem('flash_js', res.pesan);
+                location.reload();
             })
             .catch(() => {
                 tampilkanAlert('alertMassal', 'Terjadi kesalahan. Silakan coba lagi.');
@@ -1097,24 +1176,6 @@ include BASE_PATH . "includes/sidebar.php";
         document.getElementById('wrapDivisiEdit').style.display = role === 'manajer' ? 'block' : 'none';
     }
 
-    // TOGGLE EMAIL & PASSWORD
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.toggle-val');
-        if (!btn) return;
-        const target = btn.dataset.target;
-        const row = btn.closest('tr');
-        const span = row.querySelector(`.val-${target}`);
-        const icon = btn.querySelector('i');
-        const hidden = '••••••••';
-        if (span.textContent.trim() === hidden) {
-            span.textContent = span.dataset.val;
-            icon.className = 'bi bi-eye';
-        } else {
-            span.textContent = hidden;
-            icon.className = 'bi bi-eye-slash';
-        }
-    });
-
     // MODAL AUTOFOCUS & RESET
     document.getElementById('modalTambah').addEventListener('shown.bs.modal', function() {
         document.getElementById('inputTambahNama').focus();
@@ -1123,6 +1184,7 @@ include BASE_PATH . "includes/sidebar.php";
     document.getElementById('modalTambah').addEventListener('hidden.bs.modal', function() {
         sembunyikanAlert('alertTambah');
         document.getElementById('formTambah').reset();
+        document.getElementById('btnSubmitTambah').disabled = false;
         toggleDivisiTambah('admin');
     });
 
@@ -1130,12 +1192,15 @@ include BASE_PATH . "includes/sidebar.php";
         document.getElementById('editNama').focus();
     });
 
-    function bukaModalEdit(id, nama, email, role, status, divisiId) {
+    function bukaModalEdit(id, nama, username, email, role, status, divisiId) {
         document.getElementById('editUserId').value = id;
         document.getElementById('editNama').value = nama;
+        document.getElementById('editUsername').value = username;
         document.getElementById('editEmail').value = email;
         document.getElementById('editRole').value = role;
         document.getElementById('editStatus').value = status;
+        document.getElementById('editPassword').value = '';
+        document.getElementById('btnSubmitEdit').disabled = false;
         toggleDivisiEdit(role);
         if (role === 'manajer' && divisiId) {
             document.getElementById('editDivisi').value = divisiId;
@@ -1164,6 +1229,9 @@ include BASE_PATH . "includes/sidebar.php";
             if (banner) banner.after(wrapper);
             aktivasiAlertLuar(wrapper);
         }
+
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.focus();
 
         applyFilter();
     });
