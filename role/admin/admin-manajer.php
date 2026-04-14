@@ -492,7 +492,7 @@ include BASE_PATH . "includes/sidebar.php";
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Email</label>
-                            <input type="email" name="email" id="editEmail" class="form-control rounded-3">
+                            <input type="email" name="email" id="editEmail" class="form-control rounded-3" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Password Baru <small class="text-muted fw-normal">(kosongkan jika tidak diubah)</small></label>
