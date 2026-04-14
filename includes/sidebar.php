@@ -26,6 +26,8 @@
     $current_page = basename($_SERVER['PHP_SELF']);
     $current_dir  = basename(dirname($_SERVER['PHP_SELF']));
     $role         = $_SESSION['role'];
+
+    $pengguna_aktif = in_array($current_page, ['admin-manajer.php', 'intern.php']) && $current_dir === 'admin';
     ?>
 
     <ul class="nav nav-pills flex-column mb-auto sidebar-menu">
@@ -50,20 +52,34 @@
                 </a>
             </li>
 
+            <!-- Pengguna (collapsible) -->
             <li class="nav-item">
-                <a href="<?= BASE_URL ?>role/admin/pengguna.php"
-                    class="nav-link <?= ($current_page == 'pengguna.php') ? 'active' : '' ?>">
-                    <i class="bi bi-people-fill me-2"></i>
-                    <span>Pengguna</span>
+                <a href="#menuPengguna"
+                    class="nav-link d-flex align-items-center justify-content-between <?= $pengguna_aktif ? 'parent-open' : '' ?>"
+                    data-bs-toggle="collapse"
+                    aria-expanded="<?= $pengguna_aktif ? 'true' : 'false' ?>"
+                    aria-controls="menuPengguna">
+                    <span>
+                        <i class="bi bi-people-fill me-2"></i>Pengguna
+                    </span>
+                    <i class="bi bi-chevron-right sidebar-arrow"></i>
                 </a>
-            </li>
-
-            <li class="nav-item">
-                <a href="<?= BASE_URL ?>role/admin/intern.php"
-                    class="nav-link <?= ($current_page == 'intern.php') ? 'active' : '' ?>">
-                    <i class="bi bi-person-badge-fill me-2"></i>
-                    <span>Intern</span>
-                </a>
+                <div class="collapse <?= $pengguna_aktif ? 'show' : '' ?>" id="menuPengguna">
+                    <ul class="nav flex-column sidebar-submenu">
+                        <li class="nav-item">
+                            <a href="<?= BASE_URL ?>role/admin/admin-manajer.php"
+                                class="nav-link <?= ($current_page == 'admin-manajer.php') ? 'active' : '' ?>">
+                                <i class="bi bi-person-gear me-2"></i>Admin & Manajer
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= BASE_URL ?>role/admin/intern.php"
+                                class="nav-link <?= ($current_page == 'intern.php' && $current_dir === 'admin') ? 'active' : '' ?>">
+                                <i class="bi bi-person-badge-fill me-2"></i>Intern
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </li>
 
             <li class="nav-item">
@@ -217,6 +233,7 @@
             z-index: 1040;
             transition: transform 0.3s ease;
             padding: 20px 15px;
+            overflow-y: auto;
         }
 
         .sidebar-brand {
@@ -276,6 +293,49 @@
             background-color: #ffffff;
             color: #1E88B7;
             font-weight: 600;
+        }
+
+        /* SUBMENU */
+        .sidebar-submenu {
+            padding-left: 12px;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-submenu .nav-link {
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 4px;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            font-weight: 400;
+        }
+
+        .sidebar-submenu .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            transform: translateX(4px);
+        }
+
+        .sidebar-submenu .nav-link.active {
+            background-color: #ffffff;
+            color: #1E88B7;
+            font-weight: 600;
+        }
+
+        /* ARROW ICON */
+        .sidebar-arrow {
+            font-size: 0.8rem;
+            transition: transform 0.25s ease;
+            flex-shrink: 0;
+        }
+
+        .nav-link[aria-expanded="true"] .sidebar-arrow {
+            transform: rotate(90deg);
+        }
+
+        /* PARENT OPEN STATE */
+        .nav-link.parent-open {
+            background-color: rgba(255, 255, 255, 0.1);
         }
 
         /* CONTENT AREA */
@@ -351,10 +411,22 @@
             if (backdrop) backdrop.addEventListener("click", closeSidebar);
 
             if (window.innerWidth < 992) {
-                document.querySelectorAll(".sidebar-menu .nav-link").forEach(link => {
+                document.querySelectorAll(".sidebar-menu .nav-link:not([data-bs-toggle])").forEach(link => {
                     link.addEventListener("click", function() {
                         setTimeout(closeSidebar, 200);
                     });
+                });
+            }
+
+            // ARROW ROTATE saat collapse event
+            const menuPengguna = document.getElementById("menuPengguna");
+            if (menuPengguna) {
+                const trigger = document.querySelector('[href="#menuPengguna"]');
+                menuPengguna.addEventListener("show.bs.collapse", function() {
+                    if (trigger) trigger.classList.add("parent-open");
+                });
+                menuPengguna.addEventListener("hide.bs.collapse", function() {
+                    if (trigger) trigger.classList.remove("parent-open");
                 });
             }
 

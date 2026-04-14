@@ -60,7 +60,7 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === "edit") {
 }
 
 // HAPUS INTERN (masuk cadangan)
-if (isset($_GET['hapus'])) {
+if (isset($_GET['hapus']) && is_numeric($_GET['hapus'])) {
     $id = (int) $_GET['hapus'];
 
     $intern = mysqli_fetch_assoc(mysqli_query($conn, "
@@ -163,16 +163,18 @@ include BASE_PATH . "includes/sidebar.php";
 </div>
 
 <?php if ($success): ?>
-    <div class="alert alert-success d-flex align-items-center rounded-3 shadow-sm mb-4" role="alert">
-        <i class="bi bi-check-circle-fill me-2 fs-5"></i>
-        <div><?= $success ?></div>
+    <div id="alertLuar" class="custom-alert mb-4">
+        <div class="alert alert-success d-flex align-items-center rounded-3 shadow-sm mb-0" role="alert">
+            <i class="bi bi-check-circle-fill me-2 fs-5 flex-shrink-0"></i>
+            <div><?= $success ?></div>
+        </div>
     </div>
-<?php endif; ?>
-
-<?php if ($error): ?>
-    <div class="alert alert-danger d-flex align-items-center rounded-3 shadow-sm mb-4" role="alert">
-        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-        <div><?= $error ?></div>
+<?php elseif ($error): ?>
+    <div id="alertLuar" class="custom-alert mb-4">
+        <div class="alert alert-danger d-flex align-items-center rounded-3 shadow-sm mb-0" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5 flex-shrink-0"></i>
+            <div><?= $error ?></div>
+        </div>
     </div>
 <?php endif; ?>
 
@@ -232,7 +234,7 @@ include BASE_PATH . "includes/sidebar.php";
                 </thead>
                 <tbody id="tabelBody">
                     <?php if (count($rows) === 0): ?>
-                        <tr class="row-empty">
+                        <tr class="row-empty-data">
                             <td colspan="10" class="text-center py-5 text-muted">
                                 <i class="bi bi-person-x d-block mb-2" style="font-size:2rem;"></i>
                                 <div class="fw-semibold">Belum ada data intern</div>
@@ -250,7 +252,7 @@ include BASE_PATH . "includes/sidebar.php";
                             data-status="<?= $row['status'] ?>">
 
                             <td class="ps-3 col-no"><?= $no++ ?></td>
-                            <td class="fw-semibold"><?= htmlspecialchars($row['nama']) ?></td>
+                            <td class="fw-semibold col-nama"><?= htmlspecialchars($row['nama']) ?></td>
                             <td><?= htmlspecialchars($row['username']) ?></td>
                             <td><?= htmlspecialchars($row['email']) ?></td>
                             <td>
@@ -300,15 +302,17 @@ include BASE_PATH . "includes/sidebar.php";
                             </td>
                         </tr>
                     <?php endforeach; ?>
+
+                    <!-- EMPTY STATE SEARCH -->
+                    <tr id="emptySearch" class="d-none">
+                        <td colspan="10" class="text-center py-5 text-muted">
+                            <i class="bi bi-search d-block mb-2" style="font-size:2rem;"></i>
+                            <div class="fw-semibold">Tidak ada intern yang cocok</div>
+                            <div class="small mt-1">Coba kata kunci lain</div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
-
-            <!-- EMPTY STATE SEARCH -->
-            <div id="emptySearch" class="text-center py-5 text-muted d-none">
-                <i class="bi bi-search d-block mb-2" style="font-size:2rem;"></i>
-                <div class="fw-semibold">Tidak ada intern yang cocok</div>
-                <div class="small mt-1">Coba kata kunci lain</div>
-            </div>
         </div>
     </div>
 </div>
@@ -597,9 +601,30 @@ include BASE_PATH . "includes/sidebar.php";
         border-color: #adb5bd;
     }
 
+    .custom-alert {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.6s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .custom-alert.show {
+        max-height: 200px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .custom-alert.hide {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-6px);
+        margin-bottom: 0 !important;
+    }
+
     mark.highlight {
-        background-color: #fff3cd;
-        color: inherit;
+        background-color: #cfe2ff;
+        color: #084298;
         padding: 0 2px;
         border-radius: 3px;
         font-weight: 600;
@@ -615,14 +640,22 @@ include BASE_PATH . "includes/sidebar.php";
             gap: 12px;
         }
     }
+
+    #emptySearch td {
+        background-color: #f1f3f5 !important;
+    }
 </style>
 
 <script>
+    function getAllRows() {
+        return Array.from(document.querySelectorAll('#tabelBody tr:not(.row-empty-data):not(#emptySearch)'));
+    }
+
     function filterTabel() {
         const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
         const divisi = document.getElementById('filterDivisi').value;
         const status = document.getElementById('filterStatus').value;
-        const rows = document.querySelectorAll('#tabelBody tr:not(.row-empty)');
+        const rows = getAllRows();
         let visible = 0;
 
         function escapeRegex(s) {
@@ -649,9 +682,8 @@ include BASE_PATH . "includes/sidebar.php";
             if (matchKey && matchDivisi && matchStatus) {
                 tr.classList.remove('d-none');
                 tr.classList.toggle('row-match', keyword.length > 0);
-                const cells = tr.querySelectorAll('td');
                 const origNama = tr.dataset.nama.replace(/\b\w/g, c => c.toUpperCase());
-                cells[1].innerHTML = keyword ? highlightText(origNama, keyword) : origNama;
+                tr.querySelector('.col-nama').innerHTML = keyword ? highlightText(origNama, keyword) : origNama;
                 visible++;
             } else {
                 tr.classList.add('d-none');
@@ -666,8 +698,15 @@ include BASE_PATH . "includes/sidebar.php";
             }
         });
 
-        document.getElementById('emptySearch').classList.toggle('d-none', visible > 0);
-        document.getElementById('tabelIntern').classList.toggle('d-none', visible === 0);
+        const adaData = getAllRows().length > 0;
+        const emptySearch = document.getElementById('emptySearch');
+        if (adaData && visible === 0) {
+            emptySearch.classList.remove('d-none');
+        } else {
+            emptySearch.classList.add('d-none');
+        }
+
+        document.getElementById('tabelIntern').classList.remove('d-none');
     }
 
     document.getElementById('searchInput').addEventListener('input', filterTabel);
@@ -697,6 +736,19 @@ include BASE_PATH . "includes/sidebar.php";
         document.getElementById('hapusLink').href = '?hapus=' + id;
         new bootstrap.Modal(document.getElementById('modalHapus')).show();
     }
+
+    function aktivasiAlertLuar(el) {
+        if (!el) return;
+        setTimeout(() => el.classList.add('show'), 50);
+        setTimeout(() => {
+            el.classList.remove('show');
+            el.classList.add('hide');
+        }, 4500);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        aktivasiAlertLuar(document.getElementById('alertLuar'));
+    });
 </script>
 
 <?php include BASE_PATH . "includes/footer.php"; ?>
